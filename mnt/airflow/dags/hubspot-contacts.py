@@ -1,5 +1,3 @@
-# Hubspot CRM Objects Download
-
 from airflow import DAG
 from airflow.decorators import dag, task
 from airflow.utils.dates import days_ago
@@ -16,7 +14,7 @@ args = {
 }
 
 with DAG(
-    dag_id='fetch_hubspot_crm_objects',
+    dag_id='fetch_hubspot_contacts',
     default_args=args,
     schedule_interval=None,
     start_date=days_ago(1),
@@ -46,13 +44,22 @@ with DAG(
         else:
             return response.text
 
-    def get_schema():
+    def get_properties_meta():
         """
         Get All Available custom objects
         """
-        schema_url = "https://api.hubapi.com/crm/v3/schemas"
-        custom_objects = get_http_response(schema_url)
-        return custom_objects["results"]
+        schema_url = "https://api.hubapi.com/properties/v1/contacts/properties"
+        properties_meta = get_http_response(schema_url)
+        return properties_meta
+
+    def compile_properties(meta:list):
+        out_list = []
+        for obj in meta:
+            name = obj.get("name")
+            out_list.append(name)
+        return out_list
+
+
 
     def put_to_s3(s3_client, bucket, data, key):
         """
@@ -63,83 +70,40 @@ with DAG(
                              Key=key)
         return f"Object Put Success: {key}"
 
-    def compile_objects(custom_objects):
-        """
-        clean up the custom objects dict and return only necessary properties
-        """
-        out_list = []
-        for obj in custom_objects:
-            label, type_id = get_object_id(obj)
-            properties = get_properties(obj)
-            out_list.append(
-                {"objectTypeId": type_id, "label": label, "properties": properties})
-        return out_list
 
-    def collect_metadata():
+    def gen_object_url(properties,limit=100,after=None):
         """
-        collects schema metadata of all custom objects
         """
-        schema = get_schema()
-        obj_list = compile_objects(schema)
-        return obj_list
-
-    def get_object_id(custom_object: dict) -> list:
-        """
-        object id and labels are return from a nested custom object
-        """
-        label = custom_object.get("labels").get("singular")
-        type_id = custom_object.get("objectTypeId")
-        return label, type_id
-
-    def get_properties(custom_object: dict) -> list:
-        """
-        Input: A dict object of custom objects in Hubspot's shcema
-        Output: A list of all properties
-        """
-        properties = custom_object.get("properties")
-        out_list = []
-        for item in properties:
-            out_list.append(item.get("name"))
-        return out_list
-
-    def gen_object_url(meta, limit=100, after=''):
-        """
-        generate object url based on all custom properties
-        """
-        objectTypeId = meta["objectTypeId"]
-        properties = meta["properties"]
-        base_url = f"https://api.hubapi.com/crm/v3/objects/{objectTypeId}?"
+        base_url = f"https://api.hubapi.com/crm/v3/objects/contacts?"
         properties_str = "".join(map(lambda x: "&properties="+x, properties))
         limit = f"limit={limit}"
         after = '' if not after else f"&after={after}"
         return base_url+limit+after+properties_str
 
-    def read_object_data(meta, **context):
-        label = meta["label"].replace(" ", "")
+
+
+    def read_object_data(properties,idx, **context):
         after = None
         counter = 0
         iterate = True
 
-        url = gen_object_url(meta, limit=100, after=after)
+        url = gen_object_url(properties, limit=100, after=after)
         print(f"Fetch URL ->  {url}")
         data = get_http_response(url)
         counter += 1
         # spark has trouble reading colons
         task_id = context["run_id"].replace(":","")
-        # put object to s3
-        # put_to_s3(s3_client=s3_client,bucket=bucket,data=data,key=f"{label}/{task_id}_{counter}.json")
-        # after = data["paging"].get("next").get("after")
-        # print(f"next entity id {after}")
 
         while iterate:
-            url = gen_object_url(meta, limit=100, after=after)
+            url = gen_object_url(properties, limit=100, after=after)
+            print(f"Fetch URL ->  {url}")
             # fetch the key results
             data = get_http_response(url)
             results = data.get("results")
             counter += 1
             # put object to s3
             put_to_s3(s3_client=s3_client, bucket=bucket, data=results,
-                      key=f"{label}/{task_id}_{counter}.json")
+                      key=f"contacts/{idx}/{task_id}_{counter}.json")
             after = data.get("paging").get("next").get("after") if data.get("paging") else None
             
             if not after:
@@ -148,13 +112,18 @@ with DAG(
 
         return "All data download complete"
 
-    for item in collect_metadata():
-        label = item.get("label").replace(" ", "")
+    # fetch all properties
+    properties = compile_properties(get_properties_meta())
+
+
+    for i  in range(0,len(properties),200):
+        # split properties in smaller batches
+        split_prop = properties[i:i+200]
 
         collect_meta_task = PythonOperator(
-            task_id=f"collect_metadata_{label}",
+            task_id=f"collect_contact_props_{i}-{i+200}",
             python_callable=read_object_data,
-            op_kwargs={"meta": item}
+            op_kwargs={"properties": split_prop, "idx":i}
         )
 
     collect_meta_task
