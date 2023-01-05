@@ -1,0 +1,1 @@
+https://stackoverflow.com/questions/66820948/create-dynamic-workflows-in-airflow-with-xcom-value

@@ -30,10 +30,13 @@ RUN apt-get update -yqq && \
     && apt-get clean
 
 COPY ./constraints-3.8.txt /constraints-3.8.txt
+COPY ./requirements.txt /requirements.txt
 
 RUN pip install --upgrade pip && \
     useradd -ms /bin/bash -d ${AIRFLOW_HOME} airflow && \
-    pip install apache-airflow[postgres]==${AIRFLOW_VERSION} --constraint /constraints-3.8.txt
+    pip install apache-airflow[postgres]==${AIRFLOW_VERSION} --constraint /constraints-3.8.txt &&\
+    pip install -r requirements.txt
+
 
 
 COPY ./entrypoint.sh ./entrypoint.sh

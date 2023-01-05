@@ -31,6 +31,8 @@ services:
       - ./mnt/airflow/dags:/opt/airflow/dags
     ports:
       - 8080:8080
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD", "nc", "-z", "airflow", "8080"]
       interval: 10s
