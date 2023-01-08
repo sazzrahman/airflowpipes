@@ -14,7 +14,7 @@ args = {
 }
 
 with DAG(
-    dag_id='fetch_hubspot_contacts',
+    dag_id='fetch_hubspot_engagements',
     default_args=args,
     schedule_interval=None,
     start_date=days_ago(1),
@@ -71,14 +71,15 @@ with DAG(
         return f"Object Put Success: {key}"
 
 
-    def gen_object_url(properties,limit=100,after=None):
+    def gen_object_url(properties,engagement_type,limit=100,after=None):
         """
         """
-        base_url = f"https://api.hubapi.com/crm/v3/objects/contacts?"
+        base_url = f"https://api.hubapi.com/crm/v3/objects/{engagement_type}?"
         properties_str = "".join(map(lambda x: "&properties="+x, properties))
         limit = f"limit={limit}"
         after = '' if not after else f"&after={after}"
-        return base_url+limit+after+properties_str
+        associations = "&associations=contacts"
+        return base_url+limit+after+properties_str+associations
 
 
 

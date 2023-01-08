@@ -1,0 +1,7 @@
+{
+    "tasks" : "hs_task_body|hs_task_subject|hs_task_status|hs_task_priority|hs_task_type|hubspot_owner_id",
+    "meetings": "hs_meeting_title|hs_meeting_body|hs_internal_meeting_notes|hs_meeting_external_URL|hs_meeting_location|hs_meeting_outcome|hs_timestamp|hs_activity_type|hs_atta|hubspot_owner_id",
+    "calls":"hs_activity_type|hs_call_disposition|hs_call_status|hs_call_title|hs_call_direction|hs_activity_type|hubspot_owner_id|hs_call_duration|hs_call_from_number|hs_call_to_number|hs_attachment_ids|hs_call_body|hs_timestamp|hs_call_callee_object_id|hs_call_callee_object_type_id",
+    "communications":"hs_communication_channel_type|hs_communication_body|hs_timestamp|hs_communication_logged_from",
+    "emails":"hs_email_status|hs_email_subject|hs_email_headers|hs_email_direction|hs_email_to_email|hs_email_from_email|hs_timestamp|hubspot_owner_id|hs_email_text|hs_attachment_ids",
+}
